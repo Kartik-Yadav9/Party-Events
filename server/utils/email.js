@@ -3,11 +3,20 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 
+const emailUser = process.env.EMAIL_USER?.trim();
+const emailPass = process.env.EMAIL_PASS?.trim();
+
+if (!emailUser || !emailPass) {
+  console.warn(
+    "Email not configured: set EMAIL_USER and EMAIL_PASS in server/.env"
+  );
+}
+
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: emailUser,
+    pass: emailPass,
   },
 });
 
@@ -63,6 +72,7 @@ const sendOtpEmail = async (userEmail, otp, type) => {
     console.log(`OTP email sent to ${userEmail} for ${type}`);
   } catch (error) {
     console.error("Error sending OTP email: ", error);
+    throw error;
   }
 };
 

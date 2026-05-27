@@ -1,17 +1,20 @@
-const express= require("express")
-const dotenv= require("dotenv")
-const cors= require("cors")
-const mongoose= require("mongoose")
-const authRoutes = require("./App/routes/web/auth")
- dotenv.config()
+require("dotenv").config();
+
+const express = require("express");
+const cors = require("cors");
+const mongoose = require("mongoose");
+const authRoutes = require("./App/routes/web/auth");
+const eventRoutes = require("./App/routes/web/events");
 
 const app = express();
-
+app.use(express.json());
 //routes
-app.use('/api/auth', authRoutes )
+app.use('/api/auth', authRoutes)
+app.use('/api/events', eventRoutes)
+// app.use('/api/bookings', require("./App/routes/web/booking"))
 
  app.use(cors())
- app.use(express.json())
+ 
  
  mongoose
    .connect(process.env.MONGODB_URL)
