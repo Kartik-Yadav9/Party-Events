@@ -86,8 +86,8 @@ exports.confirmBooking = async (req, res) => {
   try {
     const { paymentStatus } = req.body; //paymentStatus can be 'paid' or 'not_paid'
     const booking = await Booking.findById(req.params.id)
-      .populate("userId")  //here populate will replace userId with actual full user document from User collection
-      .populate("eventId");  //here populate will replace eventId with actual full event document from Event collection
+      .populate("userId") //here populate will replace userId with actual full user document from User collection
+      .populate("eventId"); //here populate will replace eventId with actual full event document from Event collection
     if (!booking) {
       return res.status(404).json({ message: "Booking not found" });
     }
@@ -115,9 +115,9 @@ exports.confirmBooking = async (req, res) => {
 
     //send email on admin confirmation
     await sendBookingEmail(
-        booking.userId.email,
-        booking.userId.name,
-        booking.eventId.title,
+      booking.userId.email,
+      booking.userId.name,
+      booking.eventId.title
     );
 
     res.json({ message: "Booking confirmed successfully", booking });
@@ -128,6 +128,65 @@ exports.confirmBooking = async (req, res) => {
   }
 };
 
+exports.getMyBookings = async (req, res) => {
+  try {
+    const bookings =
+      req.user.role === "admin"
+        ? await Booking.find()
+            .populate("eventId")
+            .populate("userId", "name email") //only populate name and email of userId for admin view, for normal user we can populate full user details if needed
+            .sort({ createdAt: -1 }) // Populate userId with only name and email fields
+        : await Booking.find({ userId: req.user._id }) //for normal user, only fetch bookings related to that user and populate event details
+            .populate("eventId")
+            .sort({ createdAt: -1 });
+
+    res.json({ bookings }); // Return the list of bookings
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
+  }
+};
+
+// Cancel a booking
+exports.cancelBooking = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id); // Find the booking by ID
+    if (!booking) {  // If booking not found, return 404
+      return res.status(404).json({ message: "Booking not found" });
+    }
+    if (
+      booking.userId.toString() !== req.user._id.toString() && // Check if the user is the owner of the booking or an admin
+      req.user.role !== "admin" 
+    ) {
+      return res
+        .status(403)
+        .json({ message: "Unauthorized to cancel this booking" });
+    }
+
+    if (booking.status === "cancelled") {
+      return res.status(400).json({ message: "Booking is already cancelled" });
+    }
+
+    const wasConfirmed = booking.status === "confirmed"; // Check if the booking was confirmed before cancellation
+    booking.status = "cancelled";
+    await booking.save();
+
+    if (wasConfirmed) {
+      // If the booking was confirmed, increase available seats in the event
+      const event = await Event.findById(booking.eventId);
+      if (event) {
+        event.availableSeats += 1;
+        await event.save();
+      }
+    }
+    res.json({ message: "Booking cancelled successfully" });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
+  }
+};
 
 //for populate, {
 //    _id: "b101",
